@@ -6,48 +6,6 @@
 #define AGUA          0
 #define NAVIO_VALOR   3
 
-/* Função para verificar se é possível posicionar um navio horizontalmente */
-int pode_posicionar_horizontal(int tabuleiro[TAM_TABULEIRO][TAM_TABULEIRO],
-                               int linha, int coluna_inicial, int tamanho)
-{
-    int i;
-
-    /* Verifica se está dentro dos limites */
-    if (linha < 0 || linha >= TAM_TABULEIRO)
-        return 0;
-    if (coluna_inicial < 0 || coluna_inicial + tamanho > TAM_TABULEIRO)
-        return 0;
-
-    /* Verifica se não há sobreposição */
-    for (i = 0; i < tamanho; i++) {
-        if (tabuleiro[linha][coluna_inicial + i] != AGUA)
-            return 0;
-    }
-
-    return 1;
-}
-
-/* Função para verificar se é possível posicionar um navio verticalmente */
-int pode_posicionar_vertical(int tabuleiro[TAM_TABULEIRO][TAM_TABULEIRO],
-                             int linha_inicial, int coluna, int tamanho)
-{
-    int i;
-
-    /* Verifica se está dentro dos limites */
-    if (coluna < 0 || coluna >= TAM_TABULEIRO)
-        return 0;
-    if (linha_inicial < 0 || linha_inicial + tamanho > TAM_TABULEIRO)
-        return 0;
-
-    /* Verifica se não há sobreposição */
-    for (i = 0; i < tamanho; i++) {
-        if (tabuleiro[linha_inicial + i][coluna] != AGUA)
-            return 0;
-    }
-
-    return 1;
-}
-
 /* Função para exibir o tabuleiro */
 void exibir_tabuleiro(int tabuleiro[TAM_TABULEIRO][TAM_TABULEIRO])
 {
@@ -70,6 +28,68 @@ void exibir_tabuleiro(int tabuleiro[TAM_TABULEIRO][TAM_TABULEIRO])
     }
 }
 
+/* Verifica se (linha, coluna) está dentro do tabuleiro */
+int dentro_limites(int linha, int coluna)
+{
+    return (linha >= 0 && linha < TAM_TABULEIRO &&
+            coluna >= 0 && coluna < TAM_TABULEIRO);
+}
+
+/* Função genérica para verificar se é possível posicionar um navio
+   em qualquer direção (horizontal, vertical ou diagonal). 
+   dlinha, dcoluna definem a direção:
+   - horizontal: (dlinha = 0, dcoluna = 1)
+   - vertical:   (dlinha = 1, dcoluna = 0)
+   - diag desc:  (dlinha = 1, dcoluna = 1)  -> tipo tabuleiro[i][i]
+   - diag asc:   (dlinha = 1, dcoluna = -1) -> tipo tabuleiro[i][9-i]
+*/
+int pode_posicionar(int tabuleiro[TAM_TABULEIRO][TAM_TABULEIRO],
+                    int linha_ini, int col_ini,
+                    int dlinha, int dcoluna,
+                    int tamanho)
+{
+    int i;
+    int linha, coluna;
+
+    /* Verifica se a última posição do navio cai dentro do tabuleiro */
+    int linha_fim = linha_ini + (tamanho - 1) * dlinha;
+    int col_fim   = col_ini   + (tamanho - 1) * dcoluna;
+
+    if (!dentro_limites(linha_ini, col_ini))
+        return 0;
+    if (!dentro_limites(linha_fim, col_fim))
+        return 0;
+
+    /* Verifica se todas as posições estão livres (AGUA) */
+    for (i = 0; i < tamanho; i++) {
+        linha = linha_ini + i * dlinha;
+        coluna = col_ini + i * dcoluna;
+
+        if (tabuleiro[linha][coluna] != AGUA) {
+            return 0; /* Há sobreposição */
+        }
+    }
+
+    return 1; /* Pode posicionar */
+}
+
+/* Posiciona o navio copiando os valores do vetor unidimensional */
+void posicionar_navio(int tabuleiro[TAM_TABULEIRO][TAM_TABULEIRO],
+                      int navio[TAM_NAVIO],
+                      int linha_ini, int col_ini,
+                      int dlinha, int dcoluna,
+                      int tamanho)
+{
+    int i;
+    int linha, coluna;
+
+    for (i = 0; i < tamanho; i++) {
+        linha  = linha_ini + i * dlinha;
+        coluna = col_ini   + i * dcoluna;
+        tabuleiro[linha][coluna] = navio[i];
+    }
+}
+
 int main(void)
 {
     int tabuleiro[TAM_TABULEIRO][TAM_TABULEIRO];
@@ -84,54 +104,81 @@ int main(void)
         }
     }
 
-    /* ==============================
-       2) Navios representados por vetores
-       ============================== */
-    int navio_horizontal[TAM_NAVIO] = { NAVIO_VALOR, NAVIO_VALOR, NAVIO_VALOR };
-    int navio_vertical[TAM_NAVIO]   = { NAVIO_VALOR, NAVIO_VALOR, NAVIO_VALOR };
+    /* Vetor base para os navios (todos de mesmo tamanho) */
+    int navio[TAM_NAVIO] = { NAVIO_VALOR, NAVIO_VALOR, NAVIO_VALOR };
 
-    /* Coordenadas iniciais (definidas no código)
-       Você pode alterar esses valores para testar outros posicionamentos.
-    */
-    int linha_h = 2;  /* linha do navio horizontal */
-    int col_h   = 1;  /* coluna inicial do navio horizontal */
+    /* ====================================================
+       2) Definição das posições dos 4 navios
+          - 2 navios horizontais/verticais
+          - 2 navios diagonais
+       As coordenadas aqui podem ser alteradas à vontade,
+       desde que passem na validação.
+       ==================================================== */
 
-    int linha_v = 5;  /* linha inicial do navio vertical */
-    int col_v   = 7;  /* coluna do navio vertical */
+    /* Navio 1: horizontal (linha fixa, coluna aumenta) */
+    int n1_linha = 0;
+    int n1_col   = 0;
+    int n1_dl    = 0;  /* dlinha */
+    int n1_dc    = 1;  /* dcoluna */
+
+    /* Navio 2: vertical (coluna fixa, linha aumenta) */
+    int n2_linha = 5;
+    int n2_col   = 5;
+    int n2_dl    = 1;
+    int n2_dc    = 0;
+
+    /* Navio 3: diagonal descendente (linha e coluna aumentam) */
+    int n3_linha = 2;
+    int n3_col   = 7;
+    int n3_dl    = 1;
+    int n3_dc    = 1;
+
+    /* Navio 4: diagonal ascendente (linha aumenta, coluna diminui) */
+    int n4_linha = 7;
+    int n4_col   = 2;
+    int n4_dl    = 1;
+    int n4_dc    = -1;
 
     /* ==============================
        3) Validação e posicionamento
        ============================== */
 
-    /* Verifica se o navio horizontal pode ser posicionado */
-    if (!pode_posicionar_horizontal(tabuleiro, linha_h, col_h, TAM_NAVIO)) {
-        printf("Erro: nao foi possivel posicionar o navio horizontal nas coordenadas (%d, %d).\n",
-               linha_h, col_h);
-        return 1; /* encerra o programa com erro */
+    /* Navio 1 - horizontal */
+    if (!pode_posicionar(tabuleiro, n1_linha, n1_col, n1_dl, n1_dc, TAM_NAVIO)) {
+        printf("Erro ao posicionar Navio 1 (horizontal) em (%d, %d).\n",
+               n1_linha, n1_col);
+        return 1;
     }
+    posicionar_navio(tabuleiro, navio, n1_linha, n1_col, n1_dl, n1_dc, TAM_NAVIO);
 
-    /* Posiciona o navio horizontal copiando os valores do vetor para a matriz */
-    for (i = 0; i < TAM_NAVIO; i++) {
-        tabuleiro[linha_h][col_h + i] = navio_horizontal[i];
+    /* Navio 2 - vertical */
+    if (!pode_posicionar(tabuleiro, n2_linha, n2_col, n2_dl, n2_dc, TAM_NAVIO)) {
+        printf("Erro ao posicionar Navio 2 (vertical) em (%d, %d).\n",
+               n2_linha, n2_col);
+        return 1;
     }
+    posicionar_navio(tabuleiro, navio, n2_linha, n2_col, n2_dl, n2_dc, TAM_NAVIO);
 
-    /* Verifica se o navio vertical pode ser posicionado
-       (inclui checagem de sobreposicao com o navio horizontal) */
-    if (!pode_posicionar_vertical(tabuleiro, linha_v, col_v, TAM_NAVIO)) {
-        printf("Erro: nao foi possivel posicionar o navio vertical nas coordenadas (%d, %d).\n",
-               linha_v, col_v);
-        return 1; /* encerra o programa com erro */
+    /* Navio 3 - diagonal descendente */
+    if (!pode_posicionar(tabuleiro, n3_linha, n3_col, n3_dl, n3_dc, TAM_NAVIO)) {
+        printf("Erro ao posicionar Navio 3 (diagonal desc) em (%d, %d).\n",
+               n3_linha, n3_col);
+        return 1;
     }
+    posicionar_navio(tabuleiro, navio, n3_linha, n3_col, n3_dl, n3_dc, TAM_NAVIO);
 
-    /* Posiciona o navio vertical copiando os valores do vetor para a matriz */
-    for (i = 0; i < TAM_NAVIO; i++) {
-        tabuleiro[linha_v + i][col_v] = navio_vertical[i];
+    /* Navio 4 - diagonal ascendente */
+    if (!pode_posicionar(tabuleiro, n4_linha, n4_col, n4_dl, n4_dc, TAM_NAVIO)) {
+        printf("Erro ao posicionar Navio 4 (diagonal asc) em (%d, %d).\n",
+               n4_linha, n4_col);
+        return 1;
     }
+    posicionar_navio(tabuleiro, navio, n4_linha, n4_col, n4_dl, n4_dc, TAM_NAVIO);
 
     /* ==============================
        4) Exibir o tabuleiro completo
        ============================== */
-    printf("Tabuleiro com navios posicionados (0 = agua, 3 = navio):\n\n");
+    printf("Tabuleiro com 4 navios (0 = agua, 3 = navio):\n\n");
     exibir_tabuleiro(tabuleiro);
 
     return 0;
